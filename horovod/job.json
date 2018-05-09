@@ -21,12 +21,12 @@
       {
         "id": "MODEL",
         "pathPrefix": "$AZ_BATCHAI_MOUNT_ROOT/testdir/testdir",
-        "pathSuffix": "Models"
+        "pathSuffix": "models"
       },
       {
         "id": "TIMELINE",
         "pathPrefix": "$AZ_BATCHAI_MOUNT_ROOT/testdir/testdir",
-        "pathSuffix": "Timelines"
+        "pathSuffix": "timelines"
       }
     ],
     "inputDirectories": [{
@@ -38,8 +38,11 @@
     }],
     "containerSettings": {
       "imageSourceRegistry": {
-        "image": "smarker/horovod"
+        "image": "tensorflow/tensorflow:1.6.0-gpu"
       }
+    },
+    "jobPreparation": {
+      "commandLine": "$AZ_BATCHAI_INPUT_SCRIPTS/job-prep.sh"
     }
   }
 }

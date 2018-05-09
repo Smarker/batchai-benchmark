@@ -63,7 +63,7 @@ def unpickle(file):
     '''Load byte data from file'''
     if os.path.getsize(file) > 0:
         with open(file, 'rb') as f:
-            data = pickle.load(f, encoding='latin1')
+            data = pickle.load(f)
             return data
 
 def create_cnn_model(num_classes, input_shape, learning_rate):
