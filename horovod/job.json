@@ -1,0 +1,45 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Azure/BatchAI/master/schemas/2017-09-01-preview/job.json",
+  "properties": {
+    "nodeCount": 2,
+    "environmentVariables": [
+      {
+        "name": "NUM_NODES", "value": "2"
+      },
+      {
+        "name": "PROCESSES_PER_NODE", "value": "4"
+      },
+      {
+        "name": "HOROVOD_TIMELINE", "value": "$AZ_BATCHAI_OUTPUT_TIMELINE/timeline.json"
+      }
+    ],
+    "customToolkitSettings": {
+      "commandLine": "$AZ_BATCHAI_INPUT_SCRIPTS/run-cifar10.sh"
+    },
+    "stdOutErrPathPrefix": "$AZ_BATCHAI_MOUNT_ROOT/testdir/testdir",
+    "outputDirectories": [
+      {
+        "id": "MODEL",
+        "pathPrefix": "$AZ_BATCHAI_MOUNT_ROOT/testdir/testdir",
+        "pathSuffix": "Models"
+      },
+      {
+        "id": "TIMELINE",
+        "pathPrefix": "$AZ_BATCHAI_MOUNT_ROOT/testdir/testdir",
+        "pathSuffix": "Timelines"
+      }
+    ],
+    "inputDirectories": [{
+      "id": "DATASET",
+      "path": "$AZ_BATCHAI_MOUNT_ROOT/testdir/testdir/dist/horovod/data"
+    },{
+      "id": "SCRIPTS",
+      "path": "$AZ_BATCHAI_MOUNT_ROOT/testdir/testdir/dist/horovod"
+    }],
+    "containerSettings": {
+      "imageSourceRegistry": {
+        "image": "smarker/horovod"
+      }
+    }
+  }
+}
