@@ -191,7 +191,7 @@ def main(data_dir, model_dir, batch_size, epochs, learning_rate, data_augmentati
     save_model(model, model_dir, model_name) 
 
     # Score trained model.
-    scores = model.evaluate(x_test, y_test, verbose=verbose) # TODO: hvd allreduce???
+    scores = model.evaluate(x_test, y_test, verbose=verbose)
     
     if verbose:
         print('Test loss:', scores[0])

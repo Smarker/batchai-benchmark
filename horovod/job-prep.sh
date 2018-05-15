@@ -1,5 +1,11 @@
 #!/bin/bash
 
+export LD_LIBRARY_PATH=/usr/local/cuda-9.0/lib64
+export HOROVOD_CUDA_HOME=/usr/local/cuda-9.0
+export HOROVOD_GPU_ALLREDUCE=MPI
+export HOROVOD_GPU_ALLGATHER=MPI
+export HOROVOD_GPU_BROADCAST=MPI
+
 apt-get update -y
 apt-get install -y -q -o Dpkg::Options::="--force-confold" --no-install-recommends cpio libdapl2 libmlx4-1 libsm6 libxext6 wget git
 
@@ -16,6 +22,6 @@ cd ..
 rm -rf l_mpi_2017.3.196* 
 echo "source /opt/intel/compilers_and_libraries_2017.4.196/linux/mpi/intel64/bin/mpivars.sh" >> ~/.bashrc
 
-# install horovod
+# install horovod and keras
 source /opt/intel/compilers_and_libraries_2017.4.196/linux/mpi/intel64/bin/mpivars.sh
-pip install horovod absl-py keras h5py
+pip install absl-py keras h5py horovod
