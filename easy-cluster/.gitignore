@@ -1,0 +1,6 @@
+.env
+*.env
+*.env.BACKUP
+job.json
+job-prep.sh
+*.zip
