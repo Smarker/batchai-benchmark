@@ -266,6 +266,7 @@ export CLUSTER_PASSWORD=
 export CLUSTER_STATUS=
 export CLUSTER_IP=
 export CLUSTER_AGENT_PORT=
+export CLUSTER_GPU_PER_AGENT_COUNT=
 }
 
 function save_cluster_config () {
@@ -297,6 +298,7 @@ export CLUSTER_PASSWORD="`echo $CLUSTER_PASSWORD`"
 export CLUSTER_STATUS="`echo $CLUSTER_STATUS`"
 export CLUSTER_IP=`echo $CLUSTER_IP`
 export CLUSTER_AGENT_PORT=`echo $CLUSTER_AGENT_PORT`
+export CLUSTER_GPU_PER_AGENT_COUNT=`echo $CLUSTER_GPU_PER_AGENT_COUNT`
 
 EOT
 
@@ -325,13 +327,16 @@ function create_config_file() {
     echo 
     echo -e "Select an option ${BLUE}(1-3)${NC} (or press [${GREEN}Enter${NC}] to continue with a ${L_BLUE}\"Basic\"${NC} cluster):"
     read selection
+    export CLUSTER_GPU_PER_AGENT_COUNT=1
     local VM_SKU="STANDARD_NC6"
     if [ ! -z "$selection" ]; then
         if [ "$selection" -gt 1 ] && [ "$selection" -le "3" ]; then
             if [ "$selection" -eq "2" ]; then
                 local VM_SKU="STANDARD_NC12"
+                export CLUSTER_GPU_PER_AGENT_COUNT=2
             elif [ "$selection" -eq "3" ]; then
                 local VM_SKU="STANDARD_NC24r"
+                export CLUSTER_GPU_PER_AGENT_COUNT=4
             fi
         fi
     fi
@@ -607,7 +612,92 @@ function delete_current_resource_group() {
     esac
 }
 
-function create_sample_job () {
+
+
+function create_horovod_job() {
+    clean_session
+    source $CONFIG_FILE_NAME
+    #Make sure the cluster has at least one node provisioned idle with the filesystem mounted
+    echo -e "${YELLOW}- Getting CIFAR 10 data set and the input scripts into  your cluster '$CLUSTER_NAME'${NC}"
+
+    #Copy the script to download the data into the server (This should be done once per cluster)
+    local AFS_DIRECTORY="/mnt/batch/tasks/shared/LS_root/mounts/${STO_FILE_SHARE}/${STO_DIR}"
+    echo "scp -i $SSH_PRIV_LOCATION -o StrictHostKeyChecking=no -P $CLUSTER_AGENT_PORT downloader.sh $CLUSTER_USERNAME@$CLUSTER_IP:$AFS_DIRECTORY "
+    scp -i $SSH_PRIV_LOCATION -o StrictHostKeyChecking=no -P $CLUSTER_AGENT_PORT downloader.sh $CLUSTER_USERNAME@$CLUSTER_IP:$AFS_DIRECTORY 
+    echo
+    echo -e "   Running script in cluster"
+    echo -e "   ssh $CLUSTER_USERNAME@$CLUSTER_IP -p $CLUSTER_AGENT_PORT -i ${SSH_PRIV_LOCATION} \"bash ${AFS_DIRECTORY}/downloader.sh ${AFS_DIRECTORY}\""
+    ssh $CLUSTER_USERNAME@$CLUSTER_IP -p $CLUSTER_AGENT_PORT -i ${SSH_PRIV_LOCATION} "/bin/bash ${AFS_DIRECTORY}/downloader.sh ${AFS_DIRECTORY}"
+
+    echo 
+    #Create the job.json file with the cluster configurations
+
+    write_horovod_job
+    run_job
+    #Try to forward port or just print the command
+}
+
+
+function write_horovod_job() {
+clean_session
+source $CONFIG_FILE_NAME
+
+local AFS_DIRECTORY="\$AZ_BATCHAI_MOUNT_ROOT/$STO_FILE_SHARE/$STO_DIR"
+
+cat <<EOT > job.json
+{
+  "$schema": "https://raw.githubusercontent.com/Azure/BatchAI/master/schemas/2017-09-01-preview/job.json",
+  "properties": {
+    "nodeCount": 2,
+    "environmentVariables": [
+      {
+        "name": "NUM_NODES", "value": "$CLUSTER_AGENT_COUNT"
+      },
+      {
+        "name": "PROCESSES_PER_NODE", "value": "$CLUSTER_GPU_PER_AGENT_COUNT"
+      },
+      {
+        "name": "HOROVOD_TIMELINE", "value": "\$AZ_BATCHAI_OUTPUT_TIMELINE/timeline.json"
+      }
+    ],
+    "customToolkitSettings": {
+      "commandLine": "\$AZ_BATCHAI_INPUT_SCRIPTS/run-cifar10.sh"
+    },
+    "stdOutErrPathPrefix": "$AFS_DIRECTORY",
+    "outputDirectories": [
+      {
+        "id": "MODEL",
+        "pathPrefix": "$AFS_DIRECTORY",
+        "pathSuffix": "models"
+      },
+      {
+        "id": "TIMELINE",
+        "pathPrefix": "$AFS_DIRECTORY",
+        "pathSuffix": "timelines"
+      }
+    ],
+    "inputDirectories": [{
+      "id": "DATASET",
+      "path": "$AFS_DIRECTORY/dist/horovod/data"
+    },{
+      "id": "SCRIPTS",
+      "path": "$AFS_DIRECTORY/dist/horovod"
+    }],
+    "containerSettings": {
+      "imageSourceRegistry": {
+        "image": "tensorflow/tensorflow:1.6.0-gpu"
+      }
+    },
+    "jobPreparation": {
+      "commandLine": "\$AZ_BATCHAI_INPUT_SCRIPTS/job-prep.sh"
+    }
+  }
+}
+
+EOT
+}
+
+function create_sample_job() {
     clean_session
     source $CONFIG_FILE_NAME
     create_job_prep
@@ -702,13 +792,14 @@ cat <<EOT > job.json
 
 EOT
 }
+
 function cluster_options() {
 
     echo -e "${YELLOW}*****************************************************************${NC}"
     echo -e "${YELLOW}**~~--               Batch AI Easy Cluster Menu            --~~**${NC}"
     echo -e "${YELLOW}*****************************************************************${NC}"
 
-    echo -e "${YELLOW}- Options for your cluster '$CLUSTER_NAME' ?${NC}"
+    echo -e "${YELLOW}- Options for your cluster '$CLUSTER_NAME'${NC}"
     echo
     echo -e "  ${L_BLUE}1)${NC} Print cluster information"
     echo -e "  ${L_BLUE}2)${NC} Obtain status of nodes and refresh SSH connection string"
@@ -726,7 +817,7 @@ function cluster_options() {
             get_connection_strings
             ;;
         3) 
-            create_sample_job
+            job_menu
             ;;
         4) 
             echo -e "-${BLUE}Saving current file '${NEW_NAME}', and running the configuration tool${NC}"
@@ -743,6 +834,35 @@ function cluster_options() {
     esac
 
     cluster_options
+}
+
+function job_menu() {
+    echo -e "${YELLOW}*****************************************************************${NC}"
+    echo -e "${YELLOW}**~~--               Distributed AI sample jobs            --~~**${NC}"
+    echo -e "${YELLOW}*****************************************************************${NC}"
+
+    echo -e "${YELLOW}- Select a job to be deployed in your cluster '$CLUSTER_NAME'${NC}"
+    echo
+    echo -e "  ${BLUE}1)${NC} ConvNet MNIST - CNTK Sample"
+    echo -e "  ${BLUE}2)${NC} Horovod + TF + Keras - CNN with CIFAR-10"
+    echo
+    echo -e "Select an option (or type 'q' to exit):"
+    read selection
+    case $selection in
+        1) 
+            create_sample_job
+            ;;
+        2) 
+            create_horovod_job
+            ;;
+        *) # anything else
+            echo "See you!"
+            exit 1
+            ;;
+    esac
+
+    cluster_options
+
 }
 
 function create_new_cluster() {
