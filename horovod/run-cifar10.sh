@@ -13,5 +13,5 @@ mpirun -n 8 -ppn 4 -hosts $AZ_BATCH_HOST_LIST \
     --data-dir $AZ_BATCHAI_INPUT_DATASET \
     --model-dir $AZ_BATCHAI_OUTPUT_MODEL \
     --batch-size 64 \
-    --epochs 2 \
+    --epochs 5 \
     --verbose 1
