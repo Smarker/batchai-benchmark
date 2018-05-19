@@ -678,10 +678,10 @@ cat <<EOT > job.json
     ],
     "inputDirectories": [{
       "id": "DATASET",
-      "path": "$AFS_DIRECTORY/dist/horovod/data"
+      "path": "$AFS_DIRECTORY/horovod/data"
     },{
       "id": "SCRIPTS",
-      "path": "$AFS_DIRECTORY/dist/horovod"
+      "path": "$AFS_DIRECTORY/horovod"
     }],
     "containerSettings": {
       "imageSourceRegistry": {
