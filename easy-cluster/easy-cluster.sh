@@ -367,6 +367,8 @@ function create_config_file() {
 
 function print_conf_file() {
     reset_variables
+    if [ -f $CONFIG_FILE_NAME ]; then
+    
     source $CONFIG_FILE_NAME
 
     echo -e "${BLUE}*****************************************************************${NC}"
@@ -416,6 +418,7 @@ function print_conf_file() {
     echo -e "${BLUE}*****************************************************************${NC}"
 
     echo
+    fi
 }
 
 function check_conf_file() {
@@ -446,10 +449,12 @@ function configure() {
         echo -e "  ${GRAY}Or press 'n' to save your current config in '${NEW_NAME}' and start a new one${NC}" 
         read -n 1 -r 
         if [ ! $REPLY == $'\x0a' ]; then
-            echo -e "${BLUE}  Saving current file '${NEW_NAME}', and running the configuration tool${NC}"
-            mv $CONFIG_FILE_NAME $NEW_NAME
-            echo
-            create_config_file
+            if [ -f  $CONFIG_FILE_NAME ]; then
+                echo -e "${BLUE}  Saving current file '${NEW_NAME}', and running the configuration tool${NC}"
+                mv $CONFIG_FILE_NAME $NEW_NAME
+                echo
+                create_config_file
+            fi
         fi
         # Source environment
         clean_session
@@ -646,9 +651,9 @@ local AFS_DIRECTORY="\$AZ_BATCHAI_MOUNT_ROOT/$STO_FILE_SHARE/$STO_DIR"
 
 cat <<EOT > job.json
 {
-  "$schema": "https://raw.githubusercontent.com/Azure/BatchAI/master/schemas/2017-09-01-preview/job.json",
+  "\$schema": "https://raw.githubusercontent.com/Azure/BatchAI/master/schemas/2017-09-01-preview/job.json",
   "properties": {
-    "nodeCount": 2,
+    "nodeCount": $CLUSTER_AGENT_COUNT,
     "environmentVariables": [
       {
         "name": "NUM_NODES", "value": "$CLUSTER_AGENT_COUNT"
@@ -667,21 +672,21 @@ cat <<EOT > job.json
     "outputDirectories": [
       {
         "id": "MODEL",
-        "pathPrefix": "$AFS_DIRECTORY",
+        "pathPrefix": "$AFS_DIRECTORY/horovod/model",
         "pathSuffix": "models"
       },
       {
         "id": "TIMELINE",
-        "pathPrefix": "$AFS_DIRECTORY",
+        "pathPrefix": "$AFS_DIRECTORY/horovod/timeline",
         "pathSuffix": "timelines"
       }
     ],
     "inputDirectories": [{
       "id": "DATASET",
-      "path": "$AFS_DIRECTORY/dist/horovod/data"
+      "path": "$AFS_DIRECTORY/horovod/data"
     },{
       "id": "SCRIPTS",
-      "path": "$AFS_DIRECTORY/dist/horovod"
+      "path": "$AFS_DIRECTORY/horovod"
     }],
     "containerSettings": {
       "imageSourceRegistry": {
@@ -700,6 +705,7 @@ EOT
 function create_sample_job() {
     clean_session
     source $CONFIG_FILE_NAME
+
     create_job_prep
     echo -e "${YELLOW}- Uploading job-prep.sh file to '$CLUSTER_NAME'${NC}"
     local AFS_DIRECTORY="/mnt/batch/tasks/shared/LS_root/mounts/${STO_FILE_SHARE}/${STO_DIR}"
@@ -708,6 +714,9 @@ function create_sample_job() {
     echo
     write_job
     run_job
+
+
+
 }
 
 function run_job() {
@@ -716,7 +725,8 @@ function run_job() {
     az batchai job create -n $JOB_NAME --cluster-name $CLUSTER_NAME -c job.json -g $RG -l $LOC -o table
     echo
     echo -e "${GRAY}  You can see the progress of your job in the portal now or run the following command"
-    echo -e "  az batchai job show -n sample-job-15935 -g $RG -o table"
+    echo -e "${GREEN} https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/61fcfcb0-5cbf-4081-94a3-4be06a6e153d/resourceGroups/${RG}/providers/Microsoft.BatchAI/jobs/${JOB_NAME}/job-overview"
+    echo -e "  az batchai job show -n $JOB_NAME -g $RG -o table"
     echo 
     echo -e "  Also, to see the STDERR of the job you can run the following command:"
     echo -e "  az batchai job file stream -n $JOB_NAME -g $RG -f stderr-job_prep.txt"
@@ -759,7 +769,7 @@ local AFS_DIRECTORY="\$AZ_BATCHAI_MOUNT_ROOT/$STO_FILE_SHARE/$STO_DIR"
 cat <<EOT > job.json
 
 {
-    "$schema": "https://raw.githubusercontent.com/Azure/BatchAI/master/schemas/2017-09-01-preview/job.json",
+    "\$schema": "https://raw.githubusercontent.com/Azure/BatchAI/master/schemas/2017-09-01-preview/job.json",
     "properties": {
         "nodeCount": 1,
         "cntkSettings": {
@@ -820,8 +830,10 @@ function cluster_options() {
             job_menu
             ;;
         4) 
-            echo -e "-${BLUE}Saving current file '${NEW_NAME}', and running the configuration tool${NC}"
-            mv $CONFIG_FILE_NAME $CLUSTER_NAME-$CONFIG_FILE_NAME
+             if [ -f  $CONFIG_FILE_NAME ]; then
+                echo -e "-${BLUE}Saving current file '${NEW_NAME}', and running the configuration tool${NC}"
+                mv $CONFIG_FILE_NAME $CLUSTER_NAME-$CONFIG_FILE_NAME
+            fi
             create_new_cluster
             ;;
         5) 
@@ -837,31 +849,38 @@ function cluster_options() {
 }
 
 function job_menu() {
-    echo -e "${YELLOW}*****************************************************************${NC}"
-    echo -e "${YELLOW}**~~--               Distributed AI sample jobs            --~~**${NC}"
-    echo -e "${YELLOW}*****************************************************************${NC}"
+    
+    local READY_NODES=$(az batchai cluster show -g $RG -n $CLUSTER_NAME -o tsv | cut -f5)
+    if [ ! -z $READY_NODES ]; then
+        echo "You have ${READY_NODES} ready to party"
+        echo -e "${YELLOW}*****************************************************************${NC}"
+        echo -e "${YELLOW}**~~--               Distributed AI sample jobs            --~~**${NC}"
+        echo -e "${YELLOW}*****************************************************************${NC}"
 
-    echo -e "${YELLOW}- Select a job to be deployed in your cluster '$CLUSTER_NAME'${NC}"
-    echo
-    echo -e "  ${BLUE}1)${NC} ConvNet MNIST - CNTK Sample"
-    echo -e "  ${BLUE}2)${NC} Horovod + TF + Keras - CNN with CIFAR-10"
-    echo
-    echo -e "Select an option (or type 'q' to exit):"
-    read selection
-    case $selection in
-        1) 
-            create_sample_job
-            ;;
-        2) 
-            create_horovod_job
-            ;;
-        *) # anything else
-            echo "See you!"
-            exit 1
-            ;;
-    esac
+        echo -e "${YELLOW}- Select a job to be deployed in your cluster '$CLUSTER_NAME'${NC}"
+        echo
+        echo -e "  ${BLUE}1)${NC} ConvNet MNIST - CNTK Sample"
+        echo -e "  ${BLUE}2)${NC} Horovod + TF + Keras - CNN with CIFAR-10"
+        echo
+        echo -e "Select an option (or type 'q' to exit):"
+        read selection
+        case $selection in
+            1) 
+                create_sample_job
+                ;;
+            2) 
+                create_horovod_job
+                ;;
+            *) # anything else
+                echo "See you!"
+                exit 1
+                ;;
+        esac
 
-    cluster_options
+        cluster_options
+    else
+        echo "Your nodes are still not ready :("
+    fi
 
 }
 
