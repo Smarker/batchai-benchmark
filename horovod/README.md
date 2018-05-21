@@ -1,9 +1,8 @@
 # Training a CNN with Horovod on CIFAR-10 Data with BatchAI
 
-The `cifar10_cnn.py` training script uses `Horovod` to distribute `Tensorflow`
- and `Keras` to simplify model creation.
-
-The training script is run with `mpirun`.
+The `cifar10_cnn.py` training script uses
+[Horovod](https://github.com/uber/horovod) to distribute `Tensorflow`
+and `Keras` to simplify model creation.
 
 ## Monitor Training Performance
 
