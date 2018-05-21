@@ -31,7 +31,7 @@
   ],
   "inputDirectories": [{
     "id": "DATASET",
-    "path": "$AZ_BATCHAI_MOUNT_ROOT/external/storagedir/horovod/data"
+    "path": "$AZ_BATCHAI_MOUNT_ROOT/external/storagedir/horovod/data/cifar-10-batches-py"
   },{
     "id": "SCRIPTS",
     "path": "$AZ_BATCHAI_MOUNT_ROOT/external/storagedir/horovod"

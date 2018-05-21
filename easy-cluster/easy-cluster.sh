@@ -678,7 +678,7 @@ cat <<EOT > job.json
     ],
     "inputDirectories": [{
       "id": "DATASET",
-      "path": "$AFS_DIRECTORY/horovod/data"
+      "path": "$AFS_DIRECTORY/horovod/data/cifar-10-batches-py"
     },{
       "id": "SCRIPTS",
       "path": "$AFS_DIRECTORY/horovod"
