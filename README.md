@@ -1,49 +1,13 @@
-# Training a CNN with Distributed Tensorflow on CIFAR-10 Data with BatchAI
+# Distributed Training with BatchAI
 
-The training script uses `Horovod` to distribute `Tensorflow` and `Keras`
- to simplify model creation.
+Batch AI enables easy cluster provisioning and job scheduling with deep learning
+frameworks in mind (CNTK, Tensorflow).
 
-## Provisioning a Cluster and Running Jobs
+## Get Started with Examples
 
-```sh
-./easy-cluster.sh
-```
+To get started, refer to [Provision Clusters and Run Jobs](https://github.com/Smarker/batchai-benchmark/easy-cluster/#provision-a-cluster-and-run-jobs).
 
 ## Monitoring Training Performance
 
-### View Training with Tensorboard
-
-List nodes ips and ports
-
-```sh
-az batchai cluster list-nodes \
-  -n <cluster name> \
-  -o table
-```
-
-SSH into a node
-
-```sh
-ssh <node ip> -p <node port>
-```
-
-Monitor training progress by running the below command in your node:
-
-```sh
-tensorboard --logdir /mnt/batch/tasks/shared/LS_root/mounts/testdir/testdir/dist/horovod/data/logs
-```
-
-From your local machine, run this port forwarding command so you can view
-tensorboard locally:
-
-```sh
-ssh -N -f -L localhost:16006:localhost:6006 $USER@<node ip> -p <node port>
-```
-
-View tensorboard graphs by navigating to `http://localhost:16006`
-
-### View Horovod Performance with Timeline
-
-1. Download `$AZ_BATCHAI_OUTPUT_TIMELINE/timeline.json`.
-2. Open chrome and enter `chrome://tracing/`.
-3. Import `timeline.json` to view the timeline
+To view Horovod's `timeline` and Tensorflow's `tensorboard` refer to
+[Horovod Training and Monitoring](https://github.com/Smarker/batchai-benchmark/horovod/training-a-cnn-with-horovod-on-cifar-10-data-with-batchAI).

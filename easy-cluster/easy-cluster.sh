@@ -622,12 +622,12 @@ function create_horovod_job() {
 
     #Copy the script to download the data into the server (This should be done once per cluster)
     local AFS_DIRECTORY="/mnt/batch/tasks/shared/LS_root/mounts/${STO_FILE_SHARE}/${STO_DIR}"
-    echo "scp -i $SSH_PRIV_LOCATION -o StrictHostKeyChecking=no -P $CLUSTER_AGENT_PORT downloader.sh $CLUSTER_USERNAME@$CLUSTER_IP:$AFS_DIRECTORY "
-    scp -i $SSH_PRIV_LOCATION -o StrictHostKeyChecking=no -P $CLUSTER_AGENT_PORT downloader.sh $CLUSTER_USERNAME@$CLUSTER_IP:$AFS_DIRECTORY 
+    echo "scp -i $SSH_PRIV_LOCATION -o StrictHostKeyChecking=no -P $CLUSTER_AGENT_PORT horovod-cifar10-download.sh $CLUSTER_USERNAME@$CLUSTER_IP:$AFS_DIRECTORY "
+    scp -i $SSH_PRIV_LOCATION -o StrictHostKeyChecking=no -P $CLUSTER_AGENT_PORT horovod-cifar10-download.sh $CLUSTER_USERNAME@$CLUSTER_IP:$AFS_DIRECTORY 
     echo
     echo -e "   Running script in cluster"
-    echo -e "   ssh $CLUSTER_USERNAME@$CLUSTER_IP -p $CLUSTER_AGENT_PORT -i ${SSH_PRIV_LOCATION} \"bash ${AFS_DIRECTORY}/downloader.sh ${AFS_DIRECTORY}\""
-    ssh $CLUSTER_USERNAME@$CLUSTER_IP -p $CLUSTER_AGENT_PORT -i ${SSH_PRIV_LOCATION} "/bin/bash ${AFS_DIRECTORY}/downloader.sh ${AFS_DIRECTORY}"
+    echo -e "   ssh $CLUSTER_USERNAME@$CLUSTER_IP -p $CLUSTER_AGENT_PORT -i ${SSH_PRIV_LOCATION} \"bash ${AFS_DIRECTORY}/horovod-cifar10-download.sh ${AFS_DIRECTORY}\""
+    ssh $CLUSTER_USERNAME@$CLUSTER_IP -p $CLUSTER_AGENT_PORT -i ${SSH_PRIV_LOCATION} "/bin/bash ${AFS_DIRECTORY}/horovod-cifar10-download.sh ${AFS_DIRECTORY}"
 
     echo 
     #Create the job.json file with the cluster configurations
