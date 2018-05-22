@@ -769,7 +769,7 @@ cat <<EOT > job.json
         "stdOutErrPathPrefix": "$AFS_DIRECTORY",
         "inputDirectories": [{
             "id": "DATASET",
-            "path": "$AFS_DIRECTORY/"
+            "path": "$AFS_DIRECTORY/cntk_samples"
         }, {
             "id": "SCRIPT",
             "path": "$AFS_DIRECTORY/cntk_samples"
@@ -783,9 +783,6 @@ cat <<EOT > job.json
             "imageSourceRegistry": {
                 "image": "microsoft/cntk:2.1-gpu-python3.5-cuda8.0-cudnn6.0"
             }
-        },
-        "jobPreparation": {
-            "commandLine": "bash $AFS_DIRECTORY/job-prep.sh"
         }
     }
 }
