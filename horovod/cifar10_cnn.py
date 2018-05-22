@@ -17,7 +17,7 @@ from keras import backend as K
 from keras.datasets import cifar10
 from keras.layers import Dense, Dropout, Activation, Flatten
 from keras.layers import Conv2D, MaxPooling2D
-from keras.models import Sequential
+from keras.models import Sequential, load_model
 from keras.preprocessing.image import ImageDataGenerator
 import tensorflow as tf
 
@@ -102,13 +102,6 @@ def create_cnn_model(num_classes, input_shape, learning_rate):
                 metrics=['accuracy'])
     return model
 
-def save_model(model, model_dir, model_name):
-    if not os.path.isdir(model_dir):
-        os.makedirs(model_dir)
-    model_path = model_dir + '/' + model_name
-    model.save(model_path)
-    print('Saved trained model at %s ' % model_dir)
-
 def main(data_dir, model_dir, batch_size, epochs, learning_rate, data_augmentation, verbose):
     num_classes = 10
     model_name = 'keras_cifar10_trained_model.h5'
@@ -188,14 +181,20 @@ def main(data_dir, model_dir, batch_size, epochs, learning_rate, data_augmentati
                             callbacks = callbacks)
 
     # Save model and weights
-    save_model(model, model_dir, model_name) 
+    if hvd.rank() == 0:
+        if not os.path.isdir(model_dir):
+            os.makedirs(model_dir)
+        model_path = model_dir + '/' + model_name
 
-    # Score trained model.
-    scores = model.evaluate(x_test, y_test, verbose=verbose)
-    
-    if verbose:
-        print('Test loss:', scores[0])
-        print('Test accuracy:', scores[1])
+        print('Saving trained model at %s ' % model_path)
+        model.save(model_path)
+
+        # Score trained model.
+        scores = model.evaluate(x_test, y_test, verbose=verbose)
+
+        if verbose:
+            print('Test loss:', scores[0])
+            print('Test accuracy:', scores[1])
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
