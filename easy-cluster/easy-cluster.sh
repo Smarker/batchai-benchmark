@@ -527,7 +527,7 @@ function deploy() {
         --image UbuntuLTS --min $CLUSTER_AGENT_COUNT --max $CLUSTER_AGENT_COUNT --storage-account-name $STO_ACC_NAME \
         --afs-name $STO_FILE_SHARE --afs-mount-path $STO_FILE_SHARE \
         --user-name $CLUSTER_USERNAME --ssh-key "$CLUSTER_SSH_KEY" --password $CLUSTER_PASSWORD \
-        --resource-group $RG --location $LOC -o tsv | cut -f2)
+        --resource-group $RG --location $LOC -o tsv --query "allocationState")
         if [ "$CLUSTER_STATUS" == "resizing" ]; then
             save_cluster_config
             echo
@@ -548,13 +548,13 @@ function check_cluster() {
     reset_variables
     source $CONFIG_FILE_NAME
     local CLUSTER_STATUS_PREV=$CLUSTER_STATUS
-    export CLUSTER_STATUS=$(az batchai cluster show -n ${CLUSTER_NAME} -g ${RG} -o tsv | cut -f2)
+    export CLUSTER_STATUS=$(az batchai cluster show -n ${CLUSTER_NAME} -g ${RG} -o tsv --query "allocationState")
     echo -ne "  ${CLUSTER_STATUS}"
     while [ ! "$CLUSTER_STATUS" == "steady" ]; 
     do
         sleep 5
         echo -ne "."
-        export CLUSTER_STATUS=$(az batchai cluster show -n ${CLUSTER_NAME} -g ${RG} -o tsv | cut -f2)
+        export CLUSTER_STATUS=$(az batchai cluster show -n ${CLUSTER_NAME} -g ${RG} -o tsv --query "allocationState")
         if [[ ! -z "$CLUSTER_STATUS"  &&  ! "$CLUSTER_STATUS" == "$CLUSTER_STATUS_PREV" ]]; then
             echo
             echo -e "  ${GREEN}Status changed to: ${CLUSTER_STATUS}${NC}"
