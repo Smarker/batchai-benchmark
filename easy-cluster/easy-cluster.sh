@@ -783,6 +783,9 @@ cat <<EOT > job.json
             "imageSourceRegistry": {
                 "image": "microsoft/cntk:2.1-gpu-python3.5-cuda8.0-cudnn6.0"
             }
+        },
+        "jobPreparation": {
+            "commandLine": "bash $AFS_DIRECTORY/job-prep.sh"
         }
     }
 }
