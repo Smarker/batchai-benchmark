@@ -386,7 +386,7 @@ function print_conf_file() {
             fi
         fi
     fi
-    echo -e "Full Cluster eployment status: "
+    echo -e "Full Cluster deployment status: "
     echo -e  $CLUSTER_STATUS_TEXT
     echo 
     echo -e "Cluster '${PURPLE}${CLUSTER_NAME}${NC}'"
@@ -712,6 +712,9 @@ function create_sample_job() {
     echo "scp -i $SSH_PRIV_LOCATION -o StrictHostKeyChecking=no -P $CLUSTER_AGENT_PORT job-prep.sh $CLUSTER_USERNAME@$CLUSTER_IP:$AFS_DIRECTORY "
     scp -i $SSH_PRIV_LOCATION -o StrictHostKeyChecking=no -P $CLUSTER_AGENT_PORT job-prep.sh $CLUSTER_USERNAME@$CLUSTER_IP:$AFS_DIRECTORY 
     echo
+    echo -e "   Running script in cluster"
+    echo -e "   ssh $CLUSTER_USERNAME@$CLUSTER_IP -p $CLUSTER_AGENT_PORT -i ${SSH_PRIV_LOCATION} \"bash ${AFS_DIRECTORY}/job-prep.sh ${AFS_DIRECTORY}\""
+    ssh $CLUSTER_USERNAME@$CLUSTER_IP -p $CLUSTER_AGENT_PORT -i ${SSH_PRIV_LOCATION} "/bin/bash ${AFS_DIRECTORY}/job-prep.sh ${AFS_DIRECTORY}"
     write_job
     run_job
 
@@ -728,11 +731,14 @@ function run_job() {
     echo -e "${GREEN} https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/61fcfcb0-5cbf-4081-94a3-4be06a6e153d/resourceGroups/${RG}/providers/Microsoft.BatchAI/jobs/${JOB_NAME}/job-overview"
     echo -e "  az batchai job show -n $JOB_NAME -g $RG -o table"
     echo 
-    echo -e "  Also, to see the STDERR of the job you can run the following command:"
-    echo -e "  az batchai job file stream -n $JOB_NAME -g $RG -f stderr-job_prep.txt"
+    echo -e "  Also, to see the list of files you can stream:"
+    echo -e "  az batchai job file list -n  $JOB_NAME -g $RG -o table"
     echo 
-    echo -e "  Same thing to see the STDOUT of the job:"
-    echo -e "  az batchai job file stream -n $JOB_NAME -g $RG -f stdout-job_prep.txt"
+    echo -e "  To stream STDOUT:"
+    echo -e "  az batchai job file stream -n $JOB_NAME -g $RG -f stdout.txt"
+    echo 
+    echo -e "  To stream STDOUT:"
+    echo -e "  az batchai job file stream -n $JOB_NAME -g $RG -f stderr.txt"
     echo
     echo
 
@@ -745,17 +751,17 @@ cat <<EOT > job-prep.sh
 
 #!/bin/bash
 echo "Installing unzip"
-apt-get update 
-apt-get install -y zip dos2unix
+sudo apt-get update 
+sudo apt-get install -y zip dos2unix
 echo "Getting the sample files"
 export MOUNT_PATH=/mnt/batch/tasks/shared/LS_root/mounts/$STO_FILE_SHARE/$STO_DIR
-wget https://batchaisamples.blob.core.windows.net/samples/BatchAIQuickStart.zip\?st\=2017-09-29T18%3A29%3A00Z\&se\=2099-12-31T08%3A00%3A00Z\&sp\=rl\&sv\=2016-05-31\&sr\=b\&sig\=hrAZfbZC%2BQ%2FKccFQZ7OC4b%2FXSzCF5Myi4Cj%2BW3sVZDo%3D -O BatchAIQuickStart.zip 
+sudo wget https://batchaisamples.blob.core.windows.net/samples/BatchAIQuickStart.zip\?st\=2017-09-29T18%3A29%3A00Z\&se\=2099-12-31T08%3A00%3A00Z\&sp\=rl\&sv\=2016-05-31\&sr\=b\&sig\=hrAZfbZC%2BQ%2FKccFQZ7OC4b%2FXSzCF5Myi4Cj%2BW3sVZDo%3D -O BatchAIQuickStart.zip 
 echo "Creating cntk_samples folder in \$MOUNT_PATH"
-mkdir \$MOUNT_PATH/cntk_samples
+sudo mkdir \$MOUNT_PATH/cntk_samples
 echo "Unzip the file"
-unzip -o  BatchAIQuickStart.zip -d \$MOUNT_PATH/cntk_samples
+sudo unzip -o  BatchAIQuickStart.zip -d \$MOUNT_PATH/cntk_samples
 echo "Remove the zip file"
-rm -rf BatchAIQuickStart.zip
+sudo rm -rf BatchAIQuickStart.zip
 
 EOT
 }
@@ -847,34 +853,38 @@ function cluster_options() {
 
 function job_menu() {
     
-    local READY_NODES=$(az batchai cluster show -g $RG -n $CLUSTER_NAME -o tsv | cut -f5)
+    local READY_NODES=$(az batchai cluster show -g $RG -n $CLUSTER_NAME -o tsv | cut -f4)
     if [ ! -z $READY_NODES ]; then
-        echo "You have ${READY_NODES} ready to party"
-        echo -e "${YELLOW}*****************************************************************${NC}"
-        echo -e "${YELLOW}**~~--               Distributed AI sample jobs            --~~**${NC}"
-        echo -e "${YELLOW}*****************************************************************${NC}"
+        if [ ! $READY_NODES == "None" ]; then
+            echo "You have ${READY_NODES} ready to party"
+            echo -e "${YELLOW}*****************************************************************${NC}"
+            echo -e "${YELLOW}**~~--               Distributed AI sample jobs            --~~**${NC}"
+            echo -e "${YELLOW}*****************************************************************${NC}"
 
-        echo -e "${YELLOW}- Select a job to be deployed in your cluster '$CLUSTER_NAME'${NC}"
-        echo
-        echo -e "  ${BLUE}1)${NC} ConvNet MNIST - CNTK Sample"
-        echo -e "  ${BLUE}2)${NC} Horovod + TF + Keras - CNN with CIFAR-10"
-        echo
-        echo -e "Select an option (or type 'q' to exit):"
-        read selection
-        case $selection in
-            1) 
-                create_sample_job
-                ;;
-            2) 
-                create_horovod_job
-                ;;
-            *) # anything else
-                echo "See you!"
-                exit 1
-                ;;
-        esac
+            echo -e "${YELLOW}- Select a job to be deployed in your cluster '$CLUSTER_NAME'${NC}"
+            echo
+            echo -e "  ${BLUE}1)${NC} ConvNet MNIST - CNTK Sample"
+            echo -e "  ${BLUE}2)${NC} Horovod + TF + Keras - CNN with CIFAR-10"
+            echo
+            echo -e "Select an option (or type 'q' to exit):"
+            read selection
+            case $selection in
+                1) 
+                    create_sample_job
+                    ;;
+                2) 
+                    create_horovod_job
+                    ;;
+                *) # anything else
+                    echo "See you!"
+                    exit 1
+                    ;;
+            esac
 
-        cluster_options
+            cluster_options
+        else
+                echo "Your nodes are still not ready :("
+        fi
     else
         echo "Your nodes are still not ready :("
     fi
