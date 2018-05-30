@@ -32,7 +32,7 @@ wget -q https://raw.githubusercontent.com/Smarker/batchai-benchmark/master/horov
 echo "- Downloading run-cifar10.sh to $MOUNT_PATH/horovod"
 wget -q https://raw.githubusercontent.com/Smarker/batchai-benchmark/master/horovod/run-cifar10.sh -O $MOUNT_PATH/horovod/run-cifar10.sh
 
-echo "- Downloading run-cifar10.sh to $MOUNT_PATH/horovod"
+echo "- Downloading cifar10_cnn.py to $MOUNT_PATH/horovod"
 wget -q https://raw.githubusercontent.com/Smarker/batchai-benchmark/master/horovod/cifar10_cnn.py -O $MOUNT_PATH/horovod/cifar10_cnn.py 
 
 sudo dos2unix $MOUNT_PATH/horovod/*
