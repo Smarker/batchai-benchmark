@@ -16,8 +16,8 @@ Now, let's download the latest version of the script from this repo. I believe m
 mkdir easy-cluster
 cd easy-cluster
 #Download the script
-curl -o easy-cluster.sh -O  -J -L https://aka.ms/easy-cluster-batchai 
-#Giv it execution permissions
+curl -o easy-cluster.sh -O  -J -L https://aka.ms/easy-cluster-batchai
+#Give it execution permissions
 chmod +x easy-cluster.sh
 ```
 
@@ -32,4 +32,3 @@ And run the following command:
 
 1. Let the script verify your current environment and choose the subscription where you want your cluster to be deployed.
 2. Choose a size for your cluster, remember that to be able to get the NC24 you need to have quota available in your selected subscription. That implies creating a support ticket to the Batch team asking for the amount of dedicated VMs of NC24 that suit your need.
-3. 

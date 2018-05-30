@@ -369,55 +369,55 @@ function print_conf_file() {
     reset_variables
     if [ -f $CONFIG_FILE_NAME ]; then
     
-    source $CONFIG_FILE_NAME
+        source $CONFIG_FILE_NAME
 
-    echo -e "${BLUE}*****************************************************************${NC}"
-    echo -e "${BLUE}**~~--         Your Batch AI cluster configuration         --~~**${NC}"
-    echo -e "${BLUE}*****************************************************************${NC}"
+        echo -e "${BLUE}*****************************************************************${NC}"
+        echo -e "${BLUE}**~~--         Your Batch AI cluster configuration         --~~**${NC}"
+        echo -e "${BLUE}*****************************************************************${NC}"
 
 
-    local CLUSTER_STATUS_TEXT="${YELLOW}Not yet provisioned${NC}"
-    if [ ! -z $CLUSTER_STATUS ]; then
-        local CLUSTER_STATUS_TEXT="${LBLUE}${CLUSTER_STATUS}${NC}"
-        if [ "$CLUSTER_STATUS" == "steady" ]; then
-            local CLUSTER_STATUS_TEXT="${GREEN}Up and ready to go${NC}"
-            if [ ! -z "$CLUSTER_IP" ]; then
-                local SSH_CONNECTION="  ${GREEN}ssh $CLUSTER_USERNAME@$CLUSTER_IP -p $CLUSTER_AGENT_PORT -i ${SSH_PRIV_LOCATION}${NC}" 
+        local CLUSTER_STATUS_TEXT="${YELLOW}Not yet provisioned${NC}"
+        if [ ! -z $CLUSTER_STATUS ]; then
+            local CLUSTER_STATUS_TEXT="${LBLUE}${CLUSTER_STATUS}${NC}"
+            if [ "$CLUSTER_STATUS" == "steady" ]; then
+                local CLUSTER_STATUS_TEXT="${GREEN}Up and ready to go${NC}"
+                if [ ! -z "$CLUSTER_IP" ]; then
+                    local SSH_CONNECTION="  ${GREEN}ssh $CLUSTER_USERNAME@$CLUSTER_IP -p $CLUSTER_AGENT_PORT -i ${SSH_PRIV_LOCATION}${NC}" 
+                fi
             fi
         fi
-    fi
-    echo -e "Full Cluster deployment status: "
-    echo -e  $CLUSTER_STATUS_TEXT
-    echo 
-    echo -e "Cluster '${PURPLE}${CLUSTER_NAME}${NC}'"
-    echo -e "  ${YELLOW}${CLUSTER_AGENT_COUNT}${NC} '${CYAN}${CLUSTER_SKU}${NC}' nodes"
+        echo -e "Full Cluster deployment status: "
+        echo -e  $CLUSTER_STATUS_TEXT
+        echo 
+        echo -e "Cluster '${PURPLE}${CLUSTER_NAME}${NC}'"
+        echo -e "  ${YELLOW}${CLUSTER_AGENT_COUNT}${NC} '${CYAN}${CLUSTER_SKU}${NC}' nodes"
 
-    echo -e "VMs username:'${GRAY}${CLUSTER_USERNAME}${NC}'"
-    echo -e "Root password:"
-    echo -e "'${GREEN}${CLUSTER_PASSWORD}${NC}'"
-    echo
-    echo -e "Resource Group '${BLUE}${RG}${NC}' located in '${CYAN}${LOC}${NC}'."
-    echo -e "Located in '${CYAN}${LOC}${NC}'. $RG_STATUS"
-    echo
-    echo -e "Storage account: '${BLUE}${STO_ACC_NAME}${NC}'"
-    echo $STO_ACC_STATUS
+        echo -e "VMs username:'${GRAY}${CLUSTER_USERNAME}${NC}'"
+        echo -e "Root password:"
+        echo -e "'${GREEN}${CLUSTER_PASSWORD}${NC}'"
+        echo
+        echo -e "Resource Group '${BLUE}${RG}${NC}' located in '${CYAN}${LOC}${NC}'."
+        echo -e "Located in '${CYAN}${LOC}${NC}'. $RG_STATUS"
+        echo
+        echo -e "Storage account: '${BLUE}${STO_ACC_NAME}${NC}'"
+        echo $STO_ACC_STATUS
 
-    echo -e "File share: '${CYAN}${STO_FILE_SHARE}${NC}'. $STO_FILE_SHARE_STATUS"
-    echo -e 
+        echo -e "File share: '${CYAN}${STO_FILE_SHARE}${NC}'. $STO_FILE_SHARE_STATUS"
+        echo -e 
 
-    echo -e "Storage Directory: '${CYAN}${STO_DIR}${NC}. $STO_DIR_STATUS"
-    echo -e 
+        echo -e "Storage Directory: '${CYAN}${STO_DIR}${NC}. $STO_DIR_STATUS"
+        echo -e 
 
-    if [ ! -f $STO_CONN ]; then
-        echo -e "with connection string \"${GRAY}${STO_CONN}${NC}\"" | fold -w 65 
-    fi
-    echo
-    echo -e "SSH public key: '${SSH_PUB_LOCATION}'" | fold -w 65 
-    echo 
-    echo -e $SSH_CONNECTION
-    echo -e "${BLUE}*****************************************************************${NC}"
+        if [ ! -f $STO_CONN ]; then
+            echo -e "with connection string \"${GRAY}${STO_CONN}${NC}\"" | fold -w 65 
+        fi
+        echo
+        echo -e "SSH public key: '${SSH_PUB_LOCATION}'" | fold -w 65 
+        echo 
+        echo -e $SSH_CONNECTION
+        echo -e "${BLUE}*****************************************************************${NC}"
 
-    echo
+        echo
     fi
 }
 
@@ -672,12 +672,12 @@ cat <<EOT > job.json
     "outputDirectories": [
       {
         "id": "MODEL",
-        "pathPrefix": "$AFS_DIRECTORY/horovod/model",
+        "pathPrefix": "$AFS_DIRECTORY/horovod",
         "pathSuffix": "models"
       },
       {
         "id": "TIMELINE",
-        "pathPrefix": "$AFS_DIRECTORY/horovod/timeline",
+        "pathPrefix": "$AFS_DIRECTORY/horovod",
         "pathSuffix": "timelines"
       }
     ],
@@ -727,8 +727,7 @@ function run_job() {
     echo -e "${YELLOW}- Running job '$JOB_NAME' on '$CLUSTER_NAME'${NC}"
     az batchai job create -n $JOB_NAME --cluster-name $CLUSTER_NAME -c job.json -g $RG -l $LOC -o table
     echo
-    echo -e "${GRAY}  You can see the progress of your job in the portal now or run the following command"
-    echo -e "${GREEN} https://ms.portal.azure.com/#@microsoft.onmicrosoft.com/resource/subscriptions/61fcfcb0-5cbf-4081-94a3-4be06a6e153d/resourceGroups/${RG}/providers/Microsoft.BatchAI/jobs/${JOB_NAME}/job-overview"
+    echo -e "${GRAY}  You can see the progress of your job by running the following command"
     echo -e "  az batchai job show -n $JOB_NAME -g $RG -o table"
     echo 
     echo -e "  Also, to see the list of files you can stream:"
