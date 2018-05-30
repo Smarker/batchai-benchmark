@@ -367,55 +367,58 @@ function create_config_file() {
 
 function print_conf_file() {
     reset_variables
-    source $CONFIG_FILE_NAME
+    if [ -f $CONFIG_FILE_NAME ]; then
+    
+        source $CONFIG_FILE_NAME
 
-    echo -e "${BLUE}*****************************************************************${NC}"
-    echo -e "${BLUE}**~~--         Your Batch AI cluster configuration         --~~**${NC}"
-    echo -e "${BLUE}*****************************************************************${NC}"
+        echo -e "${BLUE}*****************************************************************${NC}"
+        echo -e "${BLUE}**~~--         Your Batch AI cluster configuration         --~~**${NC}"
+        echo -e "${BLUE}*****************************************************************${NC}"
 
 
-    local CLUSTER_STATUS_TEXT="${YELLOW}Not yet provisioned${NC}"
-    if [ ! -z $CLUSTER_STATUS ]; then
-        local CLUSTER_STATUS_TEXT="${LBLUE}${CLUSTER_STATUS}${NC}"
-        if [ "$CLUSTER_STATUS" == "steady" ]; then
-            local CLUSTER_STATUS_TEXT="${GREEN}Up and ready to go${NC}"
-            if [ ! -z "$CLUSTER_IP" ]; then
-                local SSH_CONNECTION="  ${GREEN}ssh $CLUSTER_USERNAME@$CLUSTER_IP -p $CLUSTER_AGENT_PORT -i ${SSH_PRIV_LOCATION}${NC}" 
+        local CLUSTER_STATUS_TEXT="${YELLOW}Not yet provisioned${NC}"
+        if [ ! -z $CLUSTER_STATUS ]; then
+            local CLUSTER_STATUS_TEXT="${LBLUE}${CLUSTER_STATUS}${NC}"
+            if [ "$CLUSTER_STATUS" == "steady" ]; then
+                local CLUSTER_STATUS_TEXT="${GREEN}Up and ready to go${NC}"
+                if [ ! -z "$CLUSTER_IP" ]; then
+                    local SSH_CONNECTION="  ${GREEN}ssh $CLUSTER_USERNAME@$CLUSTER_IP -p $CLUSTER_AGENT_PORT -i ${SSH_PRIV_LOCATION}${NC}" 
+                fi
             fi
         fi
+        echo -e "Full Cluster deployment status: "
+        echo -e  $CLUSTER_STATUS_TEXT
+        echo 
+        echo -e "Cluster '${PURPLE}${CLUSTER_NAME}${NC}'"
+        echo -e "  ${YELLOW}${CLUSTER_AGENT_COUNT}${NC} '${CYAN}${CLUSTER_SKU}${NC}' nodes"
+
+        echo -e "VMs username:'${GRAY}${CLUSTER_USERNAME}${NC}'"
+        echo -e "Root password:"
+        echo -e "'${GREEN}${CLUSTER_PASSWORD}${NC}'"
+        echo
+        echo -e "Resource Group '${BLUE}${RG}${NC}' located in '${CYAN}${LOC}${NC}'."
+        echo -e "Located in '${CYAN}${LOC}${NC}'. $RG_STATUS"
+        echo
+        echo -e "Storage account: '${BLUE}${STO_ACC_NAME}${NC}'"
+        echo $STO_ACC_STATUS
+
+        echo -e "File share: '${CYAN}${STO_FILE_SHARE}${NC}'. $STO_FILE_SHARE_STATUS"
+        echo -e 
+
+        echo -e "Storage Directory: '${CYAN}${STO_DIR}${NC}. $STO_DIR_STATUS"
+        echo -e 
+
+        if [ ! -f $STO_CONN ]; then
+            echo -e "with connection string \"${GRAY}${STO_CONN}${NC}\"" | fold -w 65 
+        fi
+        echo
+        echo -e "SSH public key: '${SSH_PUB_LOCATION}'" | fold -w 65 
+        echo 
+        echo -e $SSH_CONNECTION
+        echo -e "${BLUE}*****************************************************************${NC}"
+
+        echo
     fi
-    echo -e "Full Cluster eployment status: "
-    echo -e  $CLUSTER_STATUS_TEXT
-    echo 
-    echo -e "Cluster '${PURPLE}${CLUSTER_NAME}${NC}'"
-    echo -e "  ${YELLOW}${CLUSTER_AGENT_COUNT}${NC} '${CYAN}${CLUSTER_SKU}${NC}' nodes"
-
-    echo -e "VMs username:'${GRAY}${CLUSTER_USERNAME}${NC}'"
-    echo -e "Root password:"
-    echo -e "'${GREEN}${CLUSTER_PASSWORD}${NC}'"
-    echo
-    echo -e "Resource Group '${BLUE}${RG}${NC}' located in '${CYAN}${LOC}${NC}'."
-    echo -e "Located in '${CYAN}${LOC}${NC}'. $RG_STATUS"
-    echo
-    echo -e "Storage account: '${BLUE}${STO_ACC_NAME}${NC}'"
-    echo $STO_ACC_STATUS
-
-    echo -e "File share: '${CYAN}${STO_FILE_SHARE}${NC}'. $STO_FILE_SHARE_STATUS"
-    echo -e 
-
-    echo -e "Storage Directory: '${CYAN}${STO_DIR}${NC}. $STO_DIR_STATUS"
-    echo -e 
-
-    if [ ! -f $STO_CONN ]; then
-        echo -e "with connection string \"${GRAY}${STO_CONN}${NC}\"" | fold -w 65 
-    fi
-    echo
-    echo -e "SSH public key: '${SSH_PUB_LOCATION}'" | fold -w 65 
-    echo 
-    echo -e $SSH_CONNECTION
-    echo -e "${BLUE}*****************************************************************${NC}"
-
-    echo
 }
 
 function check_conf_file() {
@@ -446,10 +449,12 @@ function configure() {
         echo -e "  ${GRAY}Or press 'n' to save your current config in '${NEW_NAME}' and start a new one${NC}" 
         read -n 1 -r 
         if [ ! $REPLY == $'\x0a' ]; then
-            echo -e "${BLUE}  Saving current file '${NEW_NAME}', and running the configuration tool${NC}"
-            mv $CONFIG_FILE_NAME $NEW_NAME
-            echo
-            create_config_file
+            if [ -f  $CONFIG_FILE_NAME ]; then
+                echo -e "${BLUE}  Saving current file '${NEW_NAME}', and running the configuration tool${NC}"
+                mv $CONFIG_FILE_NAME $NEW_NAME
+                echo
+                create_config_file
+            fi
         fi
         # Source environment
         clean_session
@@ -646,9 +651,9 @@ local AFS_DIRECTORY="\$AZ_BATCHAI_MOUNT_ROOT/$STO_FILE_SHARE/$STO_DIR"
 
 cat <<EOT > job.json
 {
-  "$schema": "https://raw.githubusercontent.com/Azure/BatchAI/master/schemas/2017-09-01-preview/job.json",
+  "\$schema": "https://raw.githubusercontent.com/Azure/BatchAI/master/schemas/2017-09-01-preview/job.json",
   "properties": {
-    "nodeCount": 2,
+    "nodeCount": $CLUSTER_AGENT_COUNT,
     "environmentVariables": [
       {
         "name": "NUM_NODES", "value": "$CLUSTER_AGENT_COUNT"
@@ -667,12 +672,12 @@ cat <<EOT > job.json
     "outputDirectories": [
       {
         "id": "MODEL",
-        "pathPrefix": "$AFS_DIRECTORY",
+        "pathPrefix": "$AFS_DIRECTORY/horovod",
         "pathSuffix": "models"
       },
       {
         "id": "TIMELINE",
-        "pathPrefix": "$AFS_DIRECTORY",
+        "pathPrefix": "$AFS_DIRECTORY/horovod",
         "pathSuffix": "timelines"
       }
     ],
@@ -700,14 +705,21 @@ EOT
 function create_sample_job() {
     clean_session
     source $CONFIG_FILE_NAME
+
     create_job_prep
     echo -e "${YELLOW}- Uploading job-prep.sh file to '$CLUSTER_NAME'${NC}"
     local AFS_DIRECTORY="/mnt/batch/tasks/shared/LS_root/mounts/${STO_FILE_SHARE}/${STO_DIR}"
     echo "scp -i $SSH_PRIV_LOCATION -o StrictHostKeyChecking=no -P $CLUSTER_AGENT_PORT job-prep.sh $CLUSTER_USERNAME@$CLUSTER_IP:$AFS_DIRECTORY "
     scp -i $SSH_PRIV_LOCATION -o StrictHostKeyChecking=no -P $CLUSTER_AGENT_PORT job-prep.sh $CLUSTER_USERNAME@$CLUSTER_IP:$AFS_DIRECTORY 
     echo
+    echo -e "   Running script in cluster"
+    echo -e "   ssh $CLUSTER_USERNAME@$CLUSTER_IP -p $CLUSTER_AGENT_PORT -i ${SSH_PRIV_LOCATION} \"bash ${AFS_DIRECTORY}/job-prep.sh ${AFS_DIRECTORY}\""
+    ssh $CLUSTER_USERNAME@$CLUSTER_IP -p $CLUSTER_AGENT_PORT -i ${SSH_PRIV_LOCATION} "/bin/bash ${AFS_DIRECTORY}/job-prep.sh ${AFS_DIRECTORY}"
     write_job
     run_job
+
+
+
 }
 
 function run_job() {
@@ -715,14 +727,17 @@ function run_job() {
     echo -e "${YELLOW}- Running job '$JOB_NAME' on '$CLUSTER_NAME'${NC}"
     az batchai job create -n $JOB_NAME --cluster-name $CLUSTER_NAME -c job.json -g $RG -l $LOC -o table
     echo
-    echo -e "${GRAY}  You can see the progress of your job in the portal now or run the following command"
-    echo -e "  az batchai job show -n sample-job-15935 -g $RG -o table"
+    echo -e "${GRAY}  You can see the progress of your job by running the following command"
+    echo -e "  az batchai job show -n $JOB_NAME -g $RG -o table"
     echo 
-    echo -e "  Also, to see the STDERR of the job you can run the following command:"
-    echo -e "  az batchai job file stream -n $JOB_NAME -g $RG -f stderr-job_prep.txt"
+    echo -e "  Also, to see the list of files you can stream:"
+    echo -e "  az batchai job file list -n  $JOB_NAME -g $RG -o table"
     echo 
-    echo -e "  Same thing to see the STDOUT of the job:"
-    echo -e "  az batchai job file stream -n $JOB_NAME -g $RG -f stdout-job_prep.txt"
+    echo -e "  To stream STDOUT:"
+    echo -e "  az batchai job file stream -n $JOB_NAME -g $RG -f stdout.txt"
+    echo 
+    echo -e "  To stream STDOUT:"
+    echo -e "  az batchai job file stream -n $JOB_NAME -g $RG -f stderr.txt"
     echo
     echo
 
@@ -735,17 +750,17 @@ cat <<EOT > job-prep.sh
 
 #!/bin/bash
 echo "Installing unzip"
-apt-get update 
-apt-get install -y zip dos2unix
+sudo apt-get update 
+sudo apt-get install -y zip dos2unix
 echo "Getting the sample files"
 export MOUNT_PATH=/mnt/batch/tasks/shared/LS_root/mounts/$STO_FILE_SHARE/$STO_DIR
-wget https://batchaisamples.blob.core.windows.net/samples/BatchAIQuickStart.zip\?st\=2017-09-29T18%3A29%3A00Z\&se\=2099-12-31T08%3A00%3A00Z\&sp\=rl\&sv\=2016-05-31\&sr\=b\&sig\=hrAZfbZC%2BQ%2FKccFQZ7OC4b%2FXSzCF5Myi4Cj%2BW3sVZDo%3D -O BatchAIQuickStart.zip 
+sudo wget https://batchaisamples.blob.core.windows.net/samples/BatchAIQuickStart.zip\?st\=2017-09-29T18%3A29%3A00Z\&se\=2099-12-31T08%3A00%3A00Z\&sp\=rl\&sv\=2016-05-31\&sr\=b\&sig\=hrAZfbZC%2BQ%2FKccFQZ7OC4b%2FXSzCF5Myi4Cj%2BW3sVZDo%3D -O BatchAIQuickStart.zip 
 echo "Creating cntk_samples folder in \$MOUNT_PATH"
-mkdir \$MOUNT_PATH/cntk_samples
+sudo mkdir \$MOUNT_PATH/cntk_samples
 echo "Unzip the file"
-unzip -o  BatchAIQuickStart.zip -d \$MOUNT_PATH/cntk_samples
+sudo unzip -o  BatchAIQuickStart.zip -d \$MOUNT_PATH/cntk_samples
 echo "Remove the zip file"
-rm -rf BatchAIQuickStart.zip
+sudo rm -rf BatchAIQuickStart.zip
 
 EOT
 }
@@ -759,7 +774,7 @@ local AFS_DIRECTORY="\$AZ_BATCHAI_MOUNT_ROOT/$STO_FILE_SHARE/$STO_DIR"
 cat <<EOT > job.json
 
 {
-    "$schema": "https://raw.githubusercontent.com/Azure/BatchAI/master/schemas/2017-09-01-preview/job.json",
+    "\$schema": "https://raw.githubusercontent.com/Azure/BatchAI/master/schemas/2017-09-01-preview/job.json",
     "properties": {
         "nodeCount": 1,
         "cntkSettings": {
@@ -817,8 +832,10 @@ function cluster_options() {
             job_menu
             ;;
         4) 
-            echo -e "-${BLUE}Saving current file '${NEW_NAME}', and running the configuration tool${NC}"
-            mv $CONFIG_FILE_NAME $CLUSTER_NAME-$CONFIG_FILE_NAME
+             if [ -f  $CONFIG_FILE_NAME ]; then
+                echo -e "-${BLUE}Saving current file '${NEW_NAME}', and running the configuration tool${NC}"
+                mv $CONFIG_FILE_NAME $CLUSTER_NAME-$CONFIG_FILE_NAME
+            fi
             create_new_cluster
             ;;
         5) 
@@ -834,31 +851,42 @@ function cluster_options() {
 }
 
 function job_menu() {
-    echo -e "${YELLOW}*****************************************************************${NC}"
-    echo -e "${YELLOW}**~~--               Distributed AI sample jobs            --~~**${NC}"
-    echo -e "${YELLOW}*****************************************************************${NC}"
+    
+    local READY_NODES=$(az batchai cluster show -g $RG -n $CLUSTER_NAME -o tsv | cut -f4)
+    if [ ! -z $READY_NODES ]; then
+        if [ ! $READY_NODES == "None" ]; then
+            echo "You have ${READY_NODES} ready to party"
+            echo -e "${YELLOW}*****************************************************************${NC}"
+            echo -e "${YELLOW}**~~--               Distributed AI sample jobs            --~~**${NC}"
+            echo -e "${YELLOW}*****************************************************************${NC}"
 
-    echo -e "${YELLOW}- Select a job to be deployed in your cluster '$CLUSTER_NAME'${NC}"
-    echo
-    echo -e "  ${BLUE}1)${NC} ConvNet MNIST - CNTK Sample"
-    echo -e "  ${BLUE}2)${NC} Horovod + TF + Keras - CNN with CIFAR-10"
-    echo
-    echo -e "Select an option (or type 'q' to exit):"
-    read selection
-    case $selection in
-        1) 
-            create_sample_job
-            ;;
-        2) 
-            create_horovod_job
-            ;;
-        *) # anything else
-            echo "See you!"
-            exit 1
-            ;;
-    esac
+            echo -e "${YELLOW}- Select a job to be deployed in your cluster '$CLUSTER_NAME'${NC}"
+            echo
+            echo -e "  ${BLUE}1)${NC} ConvNet MNIST - CNTK Sample"
+            echo -e "  ${BLUE}2)${NC} Horovod + TF + Keras - CNN with CIFAR-10"
+            echo
+            echo -e "Select an option (or type 'q' to exit):"
+            read selection
+            case $selection in
+                1) 
+                    create_sample_job
+                    ;;
+                2) 
+                    create_horovod_job
+                    ;;
+                *) # anything else
+                    echo "See you!"
+                    exit 1
+                    ;;
+            esac
 
-    cluster_options
+            cluster_options
+        else
+                echo "Your nodes are still not ready :("
+        fi
+    else
+        echo "Your nodes are still not ready :("
+    fi
 
 }
 
