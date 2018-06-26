@@ -2,7 +2,7 @@
 # Interactively create a Batch AI cluster
 # Author: Bruno Medina (@brusmx)
 # Requirements:
-# - Azure Cli >= 2.0.26
+# - Azure Cli >= 2.0.38
 # - cut
 # - SSH client 
 # Example of usage: 
@@ -11,7 +11,7 @@
 
 set -e
 
-readonly MIN_CLI_VERSION=2.0.26
+readonly MIN_CLI_VERSION=2.0.38
 readonly CONFIG_FILE_NAME="cluster-conf.env"
 readonly SSH_PUB_LOCATION=~/.ssh/id_rsa.pub
 readonly SSH_PRIV_LOCATION=~/.ssh/id_rsa
