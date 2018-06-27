@@ -764,20 +764,24 @@ function create_sample_job() {
 
 function run_job() {
     export JOB_NAME="sample-job-${RANDOM:0:5}"
+    export EXPERIMENT="sample-experiment-${RANDOM:0:5}"
+    echo -e "${YELLOW}- Creating an experiment '$EXPERIMENT' on '$CLUSTER_NAME'${NC}"
+    az batchai experiment create -n $EXPERIMENT -g $RG -w $WORKSPACE -o table
+    echo
     echo -e "${YELLOW}- Running job '$JOB_NAME' on '$CLUSTER_NAME'${NC}"
-    az batchai job create -n $JOB_NAME --cluster-name $CLUSTER_NAME -c job.json -g $RG -w $WORKSPACE -l $LOC -o table
+    az batchai job create -n $JOB_NAME -c $CLUSTER_NAME -f job.json -g $RG -w $WORKSPACE -e $EXPERIMENT -o table
     echo
     echo -e "${GRAY}  You can see the progress of your job by running the following command"
-    echo -e "  az batchai job show -n $JOB_NAME -g $RG -w $WORKSPACE -o table"
+    echo -e "  az batchai job show -n $JOB_NAME -g $RG -w $WORKSPACE -e $EXPERIMENT -o table"
     echo 
     echo -e "  Also, to see the list of files you can stream:"
-    echo -e "  az batchai job file list -n  $JOB_NAME -g $RG -w $WORKSPACE -o table"
+    echo -e "  az batchai job file list -j $JOB_NAME -g $RG -w $WORKSPACE -e $EXPERIMENT -o table"
     echo 
     echo -e "  To stream STDOUT:"
-    echo -e "  az batchai job file stream -n $JOB_NAME -g $RG -w $WORKSPACE -f stdout.txt"
+    echo -e "  az batchai job file stream -j $JOB_NAME -g $RG -w $WORKSPACE -e $EXPERIMENT -f stdout.txt"
     echo 
     echo -e "  To stream STDOUT:"
-    echo -e "  az batchai job file stream -n $JOB_NAME -g $RG -w $WORKSPACE -f stderr.txt"
+    echo -e "  az batchai job file stream -j $JOB_NAME -g $RG -w $WORKSPACE -e $EXPERIMENT -f stderr.txt"
     echo
     echo
 
