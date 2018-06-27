@@ -249,6 +249,8 @@ function choose_subscription () {
 function reset_variables(){
 export RG=
 export LOC=
+export WORKSPACE=
+export WORKSPACE_STATUS=
 export RG_STATUS=
 export STO_ACC_NAME=
 export STO_ACC_STATUS=
@@ -277,6 +279,10 @@ cat <<EOT > ${CONFIG_FILE_NAME}
 export RG="`echo $RG`"
 export LOC=`echo $LOC`
 export RG_STATUS="`echo $RG_STATUS`"
+
+# Workspace
+export WORKSPACE="`echo $WORKSPACE`"
+export WORKSPACE_STATUS="`echo $WORKSPACE_STATUS`"
 
 # Storage Account 
 export STO_ACC_NAME="`echo $STO_ACC_NAME`"
@@ -350,6 +356,7 @@ function create_config_file() {
         fi
     fi
     export RG=batchai-rg-`echo ${RANDOM:0:4}`
+    export WORKSPACE="ws-easy-cluster-`echo ${RANDOM:0:4}`"
     export LOC=eastus
     export STO_ACC_NAME=b4tch`echo ${RANDOM:0:4}`clust3r`echo ${RANDOM:0:5}`
     export STO_FILE_SHARE=external
@@ -398,6 +405,8 @@ function print_conf_file() {
         echo
         echo -e "Resource Group '${BLUE}${RG}${NC}' located in '${CYAN}${LOC}${NC}'."
         echo -e "Located in '${CYAN}${LOC}${NC}'. $RG_STATUS"
+        echo
+        echo -e "Worskpace '${BLUE}${WORKSPACE}${NC}' $WORKSPACE_STATUS"
         echo
         echo -e "Storage account: '${BLUE}${STO_ACC_NAME}${NC}'"
         echo $STO_ACC_STATUS
@@ -487,6 +496,19 @@ function deploy() {
         save_cluster_config
         echo
     fi
+
+    if [ ! "$WORKSPACE_STATUS" == "succeeded" ]; then
+        echo -e "${YELLOW}- Creating workspace '${WORKSPACE}' in '${RG}'${NC}"
+        export WORKSPACE_STATUS=$(az batchai workspace create -g ${RG} -n ${WORKSPACE} --query provisioningState -o tsv)
+        if [ -z "$RG_STATUS" ]; then
+            echo -e "${RED}Error: Your workspace was not created${NC}"
+            exit 1
+        else
+            echo -e "  ${GREEN}Created.${NC}"
+        fi
+        save_cluster_config
+        echo
+    fi
    
 
     if [ ! "$STO_ACC_STATUS" == "Succeeded" ]; then
@@ -522,24 +544,25 @@ function deploy() {
     if [ -z "$STO_DIR_STATUS" ]; then
         echo -e "${YELLOW}- Directory '${STO_DIR}' created?${NC}"
         export STO_DIR_STATUS=$(az storage directory create --share-name $STO_FILE_SHARE  --name $STO_DIR --connection-string $STO_CONN -o tsv)
+        save_cluster_config
         echo -e "  ${GREEN}${STO_DIR_STATUS}${NC}"
         echo
     fi
-
+ 
     if [ -z "$CLUSTER_STATUS" ]; then
         echo -e "${YELLOW}- Create Batch AI cluster '$CLUSTER_NAME'${NC}"
         export CLUSTER_STATUS=$(az batchai cluster create --name $CLUSTER_NAME --vm-size $CLUSTER_SKU  \
         --image UbuntuLTS --min $CLUSTER_AGENT_COUNT --max $CLUSTER_AGENT_COUNT --storage-account-name $STO_ACC_NAME \
         --afs-name $STO_FILE_SHARE --afs-mount-path $STO_FILE_SHARE \
         --user-name $CLUSTER_USERNAME --ssh-key "$CLUSTER_SSH_KEY" --password $CLUSTER_PASSWORD \
-        --resource-group $RG --location $LOC -o tsv | cut -f2)
+        --resource-group $RG --workspace $WORKSPACE --query allocationState -o tsv)
         if [ "$CLUSTER_STATUS" == "resizing" ]; then
             save_cluster_config
             echo
             echo -e "  ${GREEN}Your cluster is being provisioned and currently is "${CLUSTER_STATUS}". You can re-run this script again in any time${NC}"
         else
             echo -e "${RED}ERROR:${NC} Cluster could not be provisioned"
-            az batchai cluster show -n $CLUSTER_NAME -g $RG -o table --query errors
+            az batchai cluster show -n $CLUSTER_NAME -g $RG -w $WORKSPACE -o table --query errors
             echo
             echo -e "If you are getting quota errors for NC24r, make sure to create a support ticket in the portal with the amount of dedicated cores needed in your subscription"
             exit
@@ -553,13 +576,13 @@ function check_cluster() {
     reset_variables
     source $CONFIG_FILE_NAME
     local CLUSTER_STATUS_PREV=$CLUSTER_STATUS
-    export CLUSTER_STATUS=$(az batchai cluster show -n ${CLUSTER_NAME} -g ${RG} -o tsv | cut -f2)
+    export CLUSTER_STATUS=$(az batchai cluster show -n ${CLUSTER_NAME} -g ${RG} -w $WORKSPACE --query allocationState  -o tsv )
     echo -ne "  ${CLUSTER_STATUS}"
     while [ ! "$CLUSTER_STATUS" == "steady" ]; 
     do
         sleep 5
         echo -ne "."
-        export CLUSTER_STATUS=$(az batchai cluster show -n ${CLUSTER_NAME} -g ${RG} -o tsv | cut -f2)
+        export CLUSTER_STATUS=$(az batchai cluster show -n ${CLUSTER_NAME} -g ${RG} -w $WORKSPACE --query allocationState -o tsv )
         if [[ ! -z "$CLUSTER_STATUS"  &&  ! "$CLUSTER_STATUS" == "$CLUSTER_STATUS_PREV" ]]; then
             echo
             echo -e "  ${GREEN}Status changed to: ${CLUSTER_STATUS}${NC}"
@@ -572,16 +595,18 @@ function check_cluster() {
 function get_connection_strings() {
     echo
     echo -e "${YELLOW}- Retrieving connection settings for a node in your cluster: '$CLUSTER_NAME' ${NC}"
-    export CLUSTER_IP=`az batchai cluster list-nodes -g $RG  -n $CLUSTER_NAME --query "[0].ipAddress" -o tsv`
+    export CLUSTER_IP=`az batchai cluster node list -g $RG -w $WORKSPACE  -c $CLUSTER_NAME --query "[0].ipAddress" -o tsv`
     echo
     echo -e "  Checking Nodes status (If they are still in 'preparing', you might not be able to deploy a job) ..."
     if [ "$CLUSTER_STATUS" == "steady" ]; then
-        az batchai cluster show -g $RG  -n $CLUSTER_NAME -o table
-        az batchai cluster list-nodes -g $RG  -n $CLUSTER_NAME -o table
+        az batchai cluster show -g $RG -n $CLUSTER_NAME -w $WORKSPACE -o table
+        echo
+        echo "List of nodes - (IP, Name and port)"
+        az batchai cluster node list -g $RG -c $CLUSTER_NAME -w $WORKSPACE -o tsv
         echo
     fi
     if [ ! -z $CLUSTER_IP ]; then
-        local CLUSTER_AGENT_PORT_D=`az batchai cluster list-nodes -g $RG  -n $CLUSTER_NAME --query "[0].port" -o tsv`
+        local CLUSTER_AGENT_PORT_D=`az batchai cluster node list -g $RG  -w $WORKSPACE -c $CLUSTER_NAME --query "[0].port" -o tsv`
         export CLUSTER_AGENT_PORT=`echo ${CLUSTER_AGENT_PORT_D%.*}`
         save_cluster_config
         echo -e "  You can connect to your cluster node with the following SSH command:"
@@ -725,19 +750,19 @@ function create_sample_job() {
 function run_job() {
     export JOB_NAME="sample-job-${RANDOM:0:5}"
     echo -e "${YELLOW}- Running job '$JOB_NAME' on '$CLUSTER_NAME'${NC}"
-    az batchai job create -n $JOB_NAME --cluster-name $CLUSTER_NAME -c job.json -g $RG -l $LOC -o table
+    az batchai job create -n $JOB_NAME --cluster-name $CLUSTER_NAME -c job.json -g $RG -w $WORKSPACE -l $LOC -o table
     echo
     echo -e "${GRAY}  You can see the progress of your job by running the following command"
-    echo -e "  az batchai job show -n $JOB_NAME -g $RG -o table"
+    echo -e "  az batchai job show -n $JOB_NAME -g $RG -w $WORKSPACE -o table"
     echo 
     echo -e "  Also, to see the list of files you can stream:"
-    echo -e "  az batchai job file list -n  $JOB_NAME -g $RG -o table"
+    echo -e "  az batchai job file list -n  $JOB_NAME -g $RG -w $WORKSPACE -o table"
     echo 
     echo -e "  To stream STDOUT:"
-    echo -e "  az batchai job file stream -n $JOB_NAME -g $RG -f stdout.txt"
+    echo -e "  az batchai job file stream -n $JOB_NAME -g $RG -w $WORKSPACE -f stdout.txt"
     echo 
     echo -e "  To stream STDOUT:"
-    echo -e "  az batchai job file stream -n $JOB_NAME -g $RG -f stderr.txt"
+    echo -e "  az batchai job file stream -n $JOB_NAME -g $RG -w $WORKSPACE -f stderr.txt"
     echo
     echo
 
@@ -852,7 +877,7 @@ function cluster_options() {
 
 function job_menu() {
     
-    local READY_NODES=$(az batchai cluster show -g $RG -n $CLUSTER_NAME -o tsv | cut -f4)
+    local READY_NODES=$(az batchai cluster show -g $RG -w $WORKSPACE -n $CLUSTER_NAME -o tsv | cut -f4)
     if [ ! -z $READY_NODES ]; then
         if [ ! $READY_NODES == "None" ]; then
             echo "You have ${READY_NODES} ready to party"
