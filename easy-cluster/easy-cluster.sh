@@ -33,7 +33,21 @@ readonly NC='\033[0m'
 # =========================================================================
 # =================== HELPER FUNCTIONS ====================================
 # =========================================================================
-function version_gt() { test "$(printf '%s\n' "$@" | sort -V | head -n 1)" != "$1"; }
+
+# version_sort function copied from https://stackoverflow.com/a/39454220
+version_sort() {
+    # read stdin, sort by version number ascending, and write stdout
+    # assumes X.Y.Z version numbers
+
+    # this will sort tags like pr-3001, pr-3002 to the END of the list
+    # and tags like 2.1.4 BEFORE 2.1.4-gitsha
+
+    sort -s -t- -k 2,2n | sort -t. -s -k 1,1n -k 2,2n -k 3,3n -k 4,4n
+}
+
+function version_gt() {
+    test "$(printf '%s\n' "$@" | version_sort | head -n 1)" != "$1";
+}
 
 function write_status(){
 cat <<EOT > ${CHECKS_FILE}
@@ -556,6 +570,7 @@ function deploy() {
         --afs-name $STO_FILE_SHARE --afs-mount-path $STO_FILE_SHARE \
         --user-name $CLUSTER_USERNAME --ssh-key "$CLUSTER_SSH_KEY" --password $CLUSTER_PASSWORD \
         --resource-group $RG --workspace $WORKSPACE --query allocationState -o tsv)
+
         if [ "$CLUSTER_STATUS" == "resizing" ]; then
             save_cluster_config
             echo
